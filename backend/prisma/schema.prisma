@@ -1,0 +1,134 @@
+// Prisma schema for Campus Complaint and Feedback Portal
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  COORDINATOR
+  ADMIN
+}
+
+enum ComplaintStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  password      String
+  role          Role     @default(STUDENT)
+  contactNumber String?
+  classId       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Student belongs to a Class
+  class            Class?            @relation("ClassStudents", fields: [classId], references: [id])
+
+  // Coordinator manages Classes (one-to-many: a coordinator can manage multiple classes)
+  managedClasses   Class[]           @relation("ClassCoordinator")
+
+  // Complaints created by this student
+  complaints       Complaint[]
+
+  // Feedback submitted by this student
+  feedbacks        Feedback[]
+
+  @@index ([classId])
+}
+
+model Class {
+  id          String   @id @default(uuid())
+  className   String   @unique
+  department  String?
+  coordinatorId String?
+  createdAt   DateTime @default(now())
+
+  // Coordinator assigned to this class
+  coordinator   User?    @relation("ClassCoordinator", fields: [coordinatorId], references: [id])
+
+  // Students in this class
+  students      User[]    @relation("ClassStudents")
+
+  // Complaints belonging to this class
+  complaints    Complaint[]
+
+  @@index ([coordinatorId])
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  // Complaints assigned to this department
+  complaints Complaint[]
+}
+
+model Complaint {
+  id               String          @id @default(uuid())
+  studentId        String
+  classId          String
+  title            String
+  category         String
+  description      String
+  location         String?
+  attachmentUrl    String?
+  priority         Priority        @default(MEDIUM)
+  status           ComplaintStatus @default(PENDING_VERIFICATION)
+  coordinatorRemark String?
+  rejectionReason  String?
+  departmentId     String?
+  adminRemark      String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  resolvedAt       DateTime?
+
+  // Relations
+  student          User            @relation(fields: [studentId], references: [id])
+  class            Class           @relation(fields: [classId], references: [id])
+  department       Department?     @relation(fields: [departmentId], references: [id])
+
+  // Feedback for this complaint (one-to-one)
+  feedback         Feedback?
+
+  @@index ([studentId])
+  @@index ([classId])
+  @@index ([departmentId])
+  @@index ([status])
+}
+
+model Feedback {
+  id         String   @id @default(uuid())
+  complaintId String  @unique
+  studentId  String
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  complaint  Complaint @relation(fields: [complaintId], references: [id])
+  student    User      @relation(fields: [studentId], references: [id])
+
+  @@index ([studentId])
+}
