@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Star, Send, Paperclip, MessageSquare } from 'lucide-react';
 import { complaintService } from '../../services';
+import api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import Spinner from '../../components/Spinner';
 import {
@@ -11,6 +12,8 @@ import {
   formatDateTime,
   getApiError,
 } from '../../utils/helpers';
+
+const attachmentHref = (url) => url?.startsWith('http') ? url : `${api.defaults.baseURL.replace(/\/api\/?$/, '')}${url}`;
 
 export default function ComplaintDetail() {
   const { id } = useParams();
@@ -122,7 +125,7 @@ export default function ComplaintDetail() {
                   <dt className="font-medium text-slate-500">Attachment</dt>
                   <dd className="mt-1">
                     <a
-                      href={complaint.attachmentUrl}
+                      href={attachmentHref(complaint.attachmentUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700"
@@ -172,25 +175,15 @@ export default function ComplaintDetail() {
         {/* Sidebar */}
         <div className="space-y-6">
           <div className="card p-5">
-            <h3 className="mb-3 text-sm font-semibold text-slate-700">Status Timeline</h3>
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Submitted</dt>
-                <dd className="text-slate-700">{formatDate(complaint.createdAt)}</dd>
+            <h3 className="mb-4 text-sm font-semibold text-slate-700">Progress Timeline</h3>
+            <div className="space-y-4">{complaint.updates?.length ? complaint.updates.map((update, index) => (
+              <div key={update.id} className="relative border-l-2 border-brand-200 pl-4">
+                <span className={`absolute -left-[5px] top-1 h-2 w-2 rounded-full ${index === complaint.updates.length - 1 ? 'bg-brand-600' : 'bg-brand-300'}`} />
+                <p className="text-sm font-medium text-slate-800">{update.status.replaceAll('_', ' ')}</p>
+                <p className="mt-1 text-sm text-slate-600">{update.message}</p>
+                <p className="mt-1 text-xs text-slate-400">{update.user?.name || 'System'} · {formatDateTime(update.createdAt)}</p>
               </div>
-              {complaint.department && (
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Department</dt>
-                  <dd className="text-slate-700">{complaint.department.name}</dd>
-                </div>
-              )}
-              {complaint.resolvedAt && (
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Resolved</dt>
-                  <dd className="text-slate-700">{formatDate(complaint.resolvedAt)}</dd>
-                </div>
-              )}
-            </dl>
+            )) : <div className="text-sm text-slate-500">Complaint submitted · {formatDateTime(complaint.createdAt)}</div>}</div>
           </div>
 
           {/* Feedback section */}

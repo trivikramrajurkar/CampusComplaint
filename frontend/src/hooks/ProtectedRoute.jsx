@@ -23,6 +23,7 @@ export default function ProtectedRoute({ roles, children }) {
     const dashboardMap = {
       STUDENT: '/student/dashboard',
       COORDINATOR: '/coordinator/dashboard',
+      DEPARTMENT: '/department/dashboard',
       ADMIN: '/admin/dashboard',
     };
     return <Navigate to={dashboardMap[user.role] || '/login'} replace />;

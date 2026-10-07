@@ -35,3 +35,5 @@ export const STATUS_LIST = [
   'IN_PROGRESS',
   'RESOLVED',
 ];
+
+export const ROLE_LIST = ['STUDENT', 'COORDINATOR', 'DEPARTMENT', 'ADMIN'];

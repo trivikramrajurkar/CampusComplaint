@@ -1,4 +1,5 @@
 import prisma from '../config/prisma.js';
+import { routeComplaint } from '../services/complaintRoutingService.js';
 
 // GET /api/coordinator/complaints — Complaints for coordinator's classes
 export async function getCoordinatorComplaints(req, res, next) {
@@ -41,6 +42,7 @@ export async function getCoordinatorComplaintById(req, res, next) {
         class: { select: { id: true, className: true, coordinatorId: true } },
         department: { select: { id: true, name: true } },
         feedback: true,
+        updates: { orderBy: { createdAt: 'asc' }, include: { user: { select: { id: true, name: true, role: true } } } },
       },
     });
 
@@ -84,21 +86,18 @@ export async function verifyComplaint(req, res, next) {
       return res.status(400).json({ message: `Complaint is already ${complaint.status}. Only pending complaints can be verified.` });
     }
 
-    const updated = await prisma.complaint.update({
-      where: { id: req.params.id },
-      data: {
-        status: 'VERIFIED',
-        coordinatorRemark: coordinatorRemark || null,
-      },
-      include: {
-        student: { select: { id: true, name: true } },
-        class: { select: { className: true } },
-        department: { select: { name: true } },
-      },
+    const department = await routeComplaint(prisma, complaint.category);
+    await prisma.$transaction(async (tx) => {
+      await tx.complaint.update({ where: { id: complaint.id }, data: { status: 'ASSIGNED', coordinatorRemark: coordinatorRemark?.trim() || null, departmentId: department.id, assignedAt: new Date() } });
+      await tx.complaintUpdate.createMany({ data: [
+        { complaintId: complaint.id, userId: req.user.id, status: 'VERIFIED', message: coordinatorRemark?.trim() || 'Complaint verified by coordinator.' },
+        { complaintId: complaint.id, userId: req.user.id, status: 'ASSIGNED', message: `Complaint automatically assigned to ${department.name} department.` },
+      ] });
     });
+    const updated = await prisma.complaint.findUnique({ where: { id: complaint.id }, include: { student: { select: { id: true, name: true } }, class: { select: { className: true } }, department: { select: { id: true, name: true } }, updates: { orderBy: { createdAt: 'asc' } } } });
 
     res.json({
-      message: 'Complaint verified successfully.',
+      message: `Complaint verified and automatically assigned to ${updated.department.name}.`,
       complaint: updated,
     });
   } catch (err) {
@@ -135,19 +134,11 @@ export async function rejectComplaint(req, res, next) {
       return res.status(400).json({ message: `Complaint is already ${complaint.status}. Only pending complaints can be rejected.` });
     }
 
-    const updated = await prisma.complaint.update({
-      where: { id: req.params.id },
-      data: {
-        status: 'REJECTED',
-        rejectionReason: rejectionReason.trim(),
-        coordinatorRemark: coordinatorRemark || null,
-      },
-      include: {
-        student: { select: { id: true, name: true } },
-        class: { select: { className: true } },
-        department: { select: { name: true } },
-      },
+    await prisma.$transaction(async (tx) => {
+      const item = await tx.complaint.update({ where: { id: complaint.id }, data: { status: 'REJECTED', rejectionReason: rejectionReason.trim(), coordinatorRemark: coordinatorRemark?.trim() || null } });
+      await tx.complaintUpdate.create({ data: { complaintId: item.id, userId: req.user.id, status: 'REJECTED', message: rejectionReason.trim() } });
     });
+    const updated = await prisma.complaint.findUnique({ where: { id: complaint.id }, include: { student: { select: { id: true, name: true } }, class: { select: { className: true } }, department: { select: { name: true } }, updates: { orderBy: { createdAt: 'asc' } } } });
 
     res.json({
       message: 'Complaint rejected.',

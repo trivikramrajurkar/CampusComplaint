@@ -8,6 +8,7 @@ import authRoutes from './routes/authRoutes.js';
 import complaintRoutes from './routes/complaintRoutes.js';
 import coordinatorRoutes from './routes/coordinatorRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import departmentRoutes from './routes/departmentRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -16,7 +17,11 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+const allowedOrigins = (process.env.FRONTEND_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map((origin) => origin.trim());
+app.use(cors({ origin(origin, callback) {
+  if (!origin || process.env.NODE_ENV !== 'production' || allowedOrigins.includes(origin)) return callback(null, true);
+  return callback(new Error('Origin is not allowed by CORS.'));
+} }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -33,6 +38,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/coordinator', coordinatorRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/department', departmentRoutes);
 
 // 404 handler
 app.use((req, res) => {

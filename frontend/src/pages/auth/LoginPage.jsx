@@ -31,6 +31,7 @@ export default function LoginPage() {
         STUDENT: '/student/dashboard',
         COORDINATOR: '/coordinator/dashboard',
         ADMIN: '/admin/dashboard',
+        DEPARTMENT: '/department/dashboard',
       };
       navigate(map[res.data.user.role] || '/login');
     } catch (err) {

@@ -12,6 +12,7 @@ datasource db {
 enum Role {
   STUDENT
   COORDINATOR
+  DEPARTMENT
   ADMIN
 }
 
@@ -39,6 +40,7 @@ model User {
   role          Role     @default(STUDENT)
   contactNumber String?
   classId       String?
+  departmentId  String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -48,13 +50,26 @@ model User {
   // Coordinator manages Classes (one-to-many: a coordinator can manage multiple classes)
   managedClasses   Class[]           @relation("ClassCoordinator")
 
+  // Department user belongs to a Department
+  department       Department?       @relation("DepartmentUsers", fields: [departmentId], references: [id])
+
   // Complaints created by this student
   complaints       Complaint[]
 
   // Feedback submitted by this student
   feedbacks        Feedback[]
 
-  @@index ([classId])
+  // Complaint updates created by this user
+  complaintUpdates ComplaintUpdate[]
+
+  // Audit logs where this user was the actor
+  auditLogsAsActor AuditLog[]        @relation("AuditActor")
+
+  // Audit logs where this user was the target
+  auditLogsAsTarget AuditLog[]       @relation("AuditTarget")
+
+  @@index([classId])
+  @@index([departmentId])
 }
 
 model Class {
@@ -73,7 +88,7 @@ model Class {
   // Complaints belonging to this class
   complaints    Complaint[]
 
-  @@index ([coordinatorId])
+  @@index([coordinatorId])
 }
 
 model Department {
@@ -83,6 +98,9 @@ model Department {
 
   // Complaints assigned to this department
   complaints Complaint[]
+
+  // Users belonging to this department
+  users      User[]  @relation("DepartmentUsers")
 }
 
 model Complaint {
@@ -100,6 +118,7 @@ model Complaint {
   rejectionReason  String?
   departmentId     String?
   adminRemark      String?
+  assignedAt       DateTime?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   resolvedAt       DateTime?
@@ -112,10 +131,13 @@ model Complaint {
   // Feedback for this complaint (one-to-one)
   feedback         Feedback?
 
-  @@index ([studentId])
-  @@index ([classId])
-  @@index ([departmentId])
-  @@index ([status])
+  // Progress history
+  updates          ComplaintUpdate[]
+
+  @@index([studentId])
+  @@index([classId])
+  @@index([departmentId])
+  @@index([status])
 }
 
 model Feedback {
@@ -130,5 +152,39 @@ model Feedback {
   complaint  Complaint @relation(fields: [complaintId], references: [id])
   student    User      @relation(fields: [studentId], references: [id])
 
-  @@index ([studentId])
+  @@index([studentId])
+}
+
+model ComplaintUpdate {
+  id          String          @id @default(uuid())
+  complaintId String
+  userId      String?
+  status      ComplaintStatus
+  message     String
+  createdAt   DateTime        @default(now())
+
+  // Relations
+  complaint   Complaint       @relation(fields: [complaintId], references: [id])
+  user        User?           @relation(fields: [userId], references: [id])
+
+  @@index([complaintId])
+  @@index([userId])
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  actorUserId   String
+  targetUserId  String?
+  action        String
+  oldRole       String?
+  newRole       String?
+  details       String?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  actor         User     @relation("AuditActor", fields: [actorUserId], references: [id])
+  target        User?    @relation("AuditTarget", fields: [targetUserId], references: [id])
+
+  @@index([actorUserId])
+  @@index([targetUserId])
 }

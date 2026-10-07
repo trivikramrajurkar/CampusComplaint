@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, XCircle, Paperclip } from 'lucide-react';
 import { coordinatorService } from '../../services';
+import api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import Spinner from '../../components/Spinner';
 import Modal from '../../components/Modal';
@@ -12,6 +13,8 @@ import {
   formatDateTime,
   getApiError,
 } from '../../utils/helpers';
+
+const attachmentHref = (url) => url?.startsWith('http') ? url : `${api.defaults.baseURL.replace(/\/api\/?$/, '')}${url}`;
 
 export default function CoordinatorComplaintDetail() {
   const { id } = useParams();
@@ -138,7 +141,7 @@ export default function CoordinatorComplaintDetail() {
                   <dt className="font-medium text-slate-500">Attachment</dt>
                   <dd className="mt-1">
                     <a
-                      href={complaint.attachmentUrl}
+                      href={attachmentHref(complaint.attachmentUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700"

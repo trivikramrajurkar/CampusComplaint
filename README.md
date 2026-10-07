@@ -1,6 +1,6 @@
 # Campus Complaint and Feedback Portal
 
-A centralized web-based Campus Complaint and Feedback Portal that allows students to submit campus complaints, route them to their respective Class Coordinator for verification, and only after verification forward them to the Admin for assignment and resolution.
+A centralized Campus Complaint and Feedback Portal that routes student complaints through coordinator verification to automatic department assignment and department-managed resolution. Admin retains oversight and intervention authority.
 
 ---
 
@@ -16,7 +16,8 @@ Build a centralized web portal where:
 
 - Students submit complaints.
 - Class Coordinators verify complaints (mandatory verification layer).
-- Admin assigns complaints to departments and tracks resolution.
+- Complaint categories route verified complaints automatically to departments.
+- Department staff post progress and resolve complaints.
 - Students provide feedback after resolution.
 
 ---
@@ -42,7 +43,8 @@ Out of scope (future): email/SMS notifications, real-time chat, AI/ML, analytics
 |------|-------------|
 | **Student** | Registers, logs in, submits complaints, views status, submits feedback after resolution. |
 | **Coordinator** | Assigned to one or more classes. Verifies or rejects complaints from their classes. Adds remarks. |
-| **Admin** | Views verified complaints, assigns departments, updates status (Assigned → In Progress → Resolved), adds resolution remarks. |
+| **Department** | Belongs to one department and handles only complaints assigned to it. Posts progress and resolves complaints. |
+| **Admin** | Oversees complaints, manages privileged users, and can override assignment or status. |
 
 Only Students can self-register. Coordinators and Admin are created via Prisma seed data.
 
@@ -62,13 +64,13 @@ CLASS COORDINATOR
 VERIFY / REJECT
    ↓
 If rejected → REJECTED → Student sees rejection reason
-If verified → VERIFIED
+If verified → automatic category routing → ASSIGNED
    ↓
-ADMIN
+DEPARTMENT accepts → IN_PROGRESS
    ↓
-Assign Department → ASSIGNED
+Department progress updates
    ↓
-IN_PROGRESS
+DEPARTMENT resolves → RESOLVED
    ↓
 RESOLVED
    ↓
@@ -82,10 +84,11 @@ Student submits feedback (rating 1–5 + optional comment)
 ## Features
 
 - JWT authentication with bcrypt password hashing.
-- Role-based authorization (Student / Coordinator / Admin).
+- Role-based authorization (Student / Coordinator / Department / Admin).
 - Complaint lifecycle: Pending Verification → Verified → Assigned → In Progress → Resolved (or Rejected).
 - Coordinator verification gate before Admin involvement.
-- Department assignment by Admin.
+- Central category-to-department automatic assignment.
+- Persistent complaint history and admin override audit trail.
 - Optional file attachment on complaints (local uploads).
 - Feedback with 1–5 rating and comment (one per complaint, after resolution).
 - Dashboard stats for all roles.
@@ -205,10 +208,17 @@ cd backend
 npx prisma generate
 ```
 
-Create and apply the initial migration:
+For a new database, apply the checked-in migrations:
 
 ```bash
-npx prisma migrate dev --name init
+npx prisma migrate dev
+```
+
+The existing configured database already has the original migration ID `20260817174121_`; the matching checked-in baseline preserves that migration history. For another existing database, verify that its schema matches the original committed Prisma schema before applying migrations. Do not reset an existing database.
+
+```bash
+cd backend
+npx prisma migrate deploy
 ```
 
 Seed the database:
@@ -227,6 +237,8 @@ Create `backend/.env`:
 DATABASE_URL="postgresql://<user>:<password>@localhost:5432/campus_complaint_portal?schema=public"
 JWT_SECRET="your_super_secret_jwt_key_here"
 PORT=5000
+FRONTEND_ORIGINS="http://localhost:5173"
+SEED_DEMO_PASSWORD="password123"
 ```
 
 Create `frontend/.env`:
@@ -234,6 +246,8 @@ Create `frontend/.env`:
 ```
 VITE_API_URL=http://localhost:5000/api
 ```
+
+In production, set `FRONTEND_ORIGINS` to a comma-separated list of allowed frontend origins. `SEED_DEMO_PASSWORD` controls development seed-account passwords; use a non-production value.
 
 ---
 
@@ -265,7 +279,7 @@ npm install
 ```bash
 cd backend
 npx prisma generate
-npx prisma migrate dev --name init
+npx prisma migrate dev
 npx prisma db seed
 npm run dev
 ```
@@ -289,8 +303,8 @@ The frontend runs on `http://localhost:5173`.
 
 ```bash
 cd backend
-npx prisma migrate dev --name <migration_name>   # create + apply
-npx prisma migrate deploy                          # apply existing
+npx prisma migrate dev                             # local development
+npx prisma migrate deploy                          # apply checked-in migrations
 npx prisma migrate status                          # check status
 ```
 
@@ -320,6 +334,16 @@ All passwords for development seed data: `password123`
 | coord.a@campus.edu | password123 | SY-CSE-A |
 | coord.b@campus.edu | password123 | SY-CSE-B |
 | coord.c@campus.edu | password123 | SY-CSE-C |
+
+### Department users
+
+| Email | Department | Password |
+|-------|------------|----------|
+| it@campus.edu | IT | password123 |
+| maintenance@campus.edu | Maintenance | password123 |
+| library@campus.edu | Library | password123 |
+| hostel@campus.edu | Hostel | password123 |
+| transport@campus.edu | Transport | password123 |
 
 ### Students
 | Email | Password | Class |

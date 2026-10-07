@@ -84,7 +84,8 @@ export async function login(req, res, next) {
         email: user.email,
         role: user.role,
         contactNumber: user.contactNumber,
-        classId: user.classId,
+      classId: user.classId,
+      departmentId: user.departmentId,
       },
     });
   } catch (err) {
@@ -104,6 +105,8 @@ export async function getMe(req, res, next) {
         role: true,
         contactNumber: true,
         classId: true,
+        departmentId: true,
+        department: { select: { id: true, name: true } },
         class: { select: { id: true, className: true } },
       },
     });

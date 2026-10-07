@@ -2,261 +2,61 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
+const demoPassword = process.env.SEED_DEMO_PASSWORD || 'password123';
 
 async function main() {
-  console.log('Seeding database...');
+  const password = await bcrypt.hash(demoPassword, 10);
+  const departments = {};
+  for (const name of ['Administration', 'IT', 'Maintenance', 'Library', 'Hostel', 'Security', 'Transport', 'Other']) {
+    departments[name] = await prisma.department.upsert({ where: { name }, update: {}, create: { name } });
+  }
 
-  // Clean existing data
-  await prisma.feedback.deleteMany();
-  await prisma.complaint.deleteMany();
-  await prisma.department.deleteMany();
-  await prisma.class.deleteMany();
-  await prisma.user.deleteMany();
-
-  const passwordHash = await bcrypt.hash('password123', 10);
-
-  // --- Create Admin ---
-  const admin = await prisma.user.create({
-    data: {
-      name: 'Campus Admin',
-      email: 'admin@campus.edu',
-      password: passwordHash,
-      role: 'ADMIN',
-      contactNumber: '9000000000',
-    },
-  });
-  console.log('Created admin:', admin.email);
-
-  // --- Create Coordinators ---
-  const coordinatorA = await prisma.user.create({
-    data: {
-      name: 'Coordinator A',
-      email: 'coord.a@campus.edu',
-      password: passwordHash,
-      role: 'COORDINATOR',
-      contactNumber: '9100000001',
-    },
-  });
-
-  const coordinatorB = await prisma.user.create({
-    data: {
-      name: 'Coordinator B',
-      email: 'coord.b@campus.edu',
-      password: passwordHash,
-      role: 'COORDINATOR',
-      contactNumber: '9100000002',
-    },
-  });
-
-  const coordinatorC = await prisma.user.create({
-    data: {
-      name: 'Coordinator C',
-      email: 'coord.c@campus.edu',
-      password: passwordHash,
-      role: 'COORDINATOR',
-      contactNumber: '9100000003',
-    },
-  });
-  console.log('Created coordinators');
-
-  // --- Create Classes ---
-  const classA = await prisma.class.create({
-    data: {
-      className: 'SY-CSE-A',
-      department: 'Computer Engineering',
-      coordinatorId: coordinatorA.id,
-    },
-  });
-
-  const classB = await prisma.class.create({
-    data: {
-      className: 'SY-CSE-B',
-      department: 'Computer Engineering',
-      coordinatorId: coordinatorB.id,
-    },
-  });
-
-  const classC = await prisma.class.create({
-    data: {
-      className: 'SY-CSE-C',
-      department: 'Computer Engineering',
-      coordinatorId: coordinatorC.id,
-    },
-  });
-  console.log('Created classes');
-
-  // --- Create Students ---
-  const student1 = await prisma.user.create({
-    data: {
-      name: 'Student One',
-      email: 'student1@campus.edu',
-      password: passwordHash,
-      role: 'STUDENT',
-      contactNumber: '9200000001',
-      classId: classA.id,
-    },
-  });
-
-  const student2 = await prisma.user.create({
-    data: {
-      name: 'Student Two',
-      email: 'student2@campus.edu',
-      password: passwordHash,
-      role: 'STUDENT',
-      contactNumber: '9200000002',
-      classId: classB.id,
-    },
-  });
-
-  const student3 = await prisma.user.create({
-    data: {
-      name: 'Student Three',
-      email: 'student3@campus.edu',
-      password: passwordHash,
-      role: 'STUDENT',
-      contactNumber: '9200000003',
-      classId: classC.id,
-    },
-  });
-  console.log('Created students');
-
-  // --- Create Departments ---
-  const departmentNames = [
-    'Administration',
-    'IT',
-    'Maintenance',
-    'Library',
-    'Hostel',
-    'Security',
-    'Transport',
-    'Other',
+  const ensureUser = async (email, data) => prisma.user.upsert({ where: { email }, update: data, create: { ...data, email, password } });
+  const admin = await ensureUser('admin@campus.edu', { name: 'Campus Admin', role: 'ADMIN', contactNumber: '9000000000' });
+  const coordinator = await ensureUser('coord.a@campus.edu', { name: 'Coordinator A', role: 'COORDINATOR', contactNumber: '9100000001' });
+  const classA = await prisma.class.upsert({ where: { className: 'SY-CSE-A' }, update: { coordinatorId: coordinator.id }, create: { className: 'SY-CSE-A', department: 'Computer Engineering', coordinatorId: coordinator.id } });
+  const coordinatorB = await ensureUser('coord.b@campus.edu', { name: 'Coordinator B', role: 'COORDINATOR', contactNumber: '9100000002' });
+  const coordinatorC = await ensureUser('coord.c@campus.edu', { name: 'Coordinator C', role: 'COORDINATOR', contactNumber: '9100000003' });
+  const classB = await prisma.class.upsert({ where: { className: 'SY-CSE-B' }, update: { coordinatorId: coordinatorB.id }, create: { className: 'SY-CSE-B', department: 'Computer Engineering', coordinatorId: coordinatorB.id } });
+  const classC = await prisma.class.upsert({ where: { className: 'SY-CSE-C' }, update: { coordinatorId: coordinatorC.id }, create: { className: 'SY-CSE-C', department: 'Computer Engineering', coordinatorId: coordinatorC.id } });
+  const student = await ensureUser('student1@campus.edu', { name: 'Student One', role: 'STUDENT', contactNumber: '9200000001', classId: classA.id });
+  const staff = [
+    ['it@campus.edu', 'IT Department', 'IT'],
+    ['maintenance@campus.edu', 'Maintenance Department', 'Maintenance'],
+    ['library@campus.edu', 'Library Department', 'Library'],
+    ['hostel@campus.edu', 'Hostel Department', 'Hostel'],
+    ['transport@campus.edu', 'Transport Department', 'Transport'],
   ];
+  for (const [email, name, departmentName] of staff) await ensureUser(email, { name, role: 'DEPARTMENT', departmentId: departments[departmentName].id });
+  await ensureUser('student2@campus.edu', { name: 'Student Two', role: 'STUDENT', contactNumber: '9200000002', classId: classB.id });
+  await ensureUser('student3@campus.edu', { name: 'Student Three', role: 'STUDENT', contactNumber: '9200000003', classId: classC.id });
 
-  const departments = await Promise.all(
-    departmentNames.map((name) =>
-      prisma.department.create({ data: { name } })
-    )
-  );
-  console.log('Created departments');
-
-  const itDept = departments.find((d) => d.name === 'IT');
-
-  // --- Create Sample Complaints in various statuses ---
-  // 1. Pending verification
-  await prisma.complaint.create({
-    data: {
-      studentId: student1.id,
-      classId: classA.id,
-      title: 'Projector not working in Room 201',
-      category: 'Classroom',
-      description: 'The projector in Room 201 is not displaying any image. It has been broken for two days.',
-      location: 'Room 201, Main Building',
-      priority: 'HIGH',
-      status: 'PENDING_VERIFICATION',
-    },
-  });
-
-  // 2. Verified (waiting for admin)
-  const verifiedComplaint = await prisma.complaint.create({
-    data: {
-      studentId: student2.id,
-      classId: classB.id,
-      title: 'Wi-Fi not working in Lab 3',
-      category: 'Wi-Fi / Internet',
-      description: 'The internet connection in Lab 3 has been down since yesterday.',
-      location: 'Lab 3, IT Building',
-      priority: 'MEDIUM',
-      status: 'VERIFIED',
-      coordinatorRemark: 'Confirmed. Wi-Fi issue is real and needs IT attention.',
-    },
-  });
-
-  // 3. Assigned
-  await prisma.complaint.create({
-    data: {
-      studentId: student3.id,
-      classId: classC.id,
-      title: 'Broken chair in classroom',
-      category: 'Classroom',
-      description: 'Several chairs in the classroom are broken and need replacement.',
-      location: 'Room 105',
-      priority: 'LOW',
-      status: 'ASSIGNED',
-      coordinatorRemark: 'Verified during rounds.',
-      departmentId: departments.find((d) => d.name === 'Maintenance').id,
-      adminRemark: 'Assigned to Maintenance department.',
-    },
-  });
-
-  // 4. In Progress
-  await prisma.complaint.create({
-    data: {
-      studentId: student1.id,
-      classId: classA.id,
-      title: 'Library AC not cooling',
-      category: 'Library',
-      description: 'The air conditioning in the library is not working, making it uncomfortable to study.',
-      location: 'Library, 2nd Floor',
-      priority: 'MEDIUM',
-      status: 'IN_PROGRESS',
-      coordinatorRemark: 'Confirmed by librarian.',
-      departmentId: departments.find((d) => d.name === 'Maintenance').id,
-      adminRemark: 'Maintenance team is working on it.',
-    },
-  });
-
-  // 5. Resolved (with feedback)
-  const resolvedComplaint = await prisma.complaint.create({
-    data: {
-      studentId: student2.id,
-      classId: classB.id,
-      title: 'Water cooler not working',
-      category: 'Infrastructure',
-      description: 'The water cooler on the ground floor is not dispensing water.',
-      location: 'Ground Floor, Main Building',
-      priority: 'HIGH',
-      status: 'RESOLVED',
-      coordinatorRemark: 'Confirmed. Needs immediate attention.',
-      departmentId: itDept.id,
-      adminRemark: 'Water cooler repaired and tested. Working fine now.',
-      resolvedAt: new Date(),
-    },
-  });
-
-  await prisma.feedback.create({
-    data: {
-      complaintId: resolvedComplaint.id,
-      studentId: student2.id,
-      rating: 4,
-      comment: 'Issue was resolved quickly. Thank you!',
-    },
-  });
-
-  // 6. Rejected
-  await prisma.complaint.create({
-    data: {
-      studentId: student3.id,
-      classId: classC.id,
-      title: 'Unfair marking in assignment',
-      category: 'Other',
-      description: 'I think the marks for assignment 2 are unfair.',
-      location: 'N/A',
-      priority: 'LOW',
-      status: 'REJECTED',
-      coordinatorRemark: 'This is an academic evaluation matter, not a campus facility complaint. Please contact the subject teacher.',
-      rejectionReason: 'This does not fall under campus facility complaints. Please raise it with the respective faculty.',
-    },
-  });
-
-  console.log('Created sample complaints');
-  console.log('Seed completed successfully!');
+  const examples = [
+    { title: 'Sample projector inspection', category: 'Classroom', status: 'PENDING_VERIFICATION', priority: 'HIGH' },
+    { title: 'Wi-Fi not working in Lab 3', category: 'Wi-Fi / Internet', status: 'ASSIGNED', priority: 'HIGH', departmentId: departments.IT.id, assignedAt: new Date() },
+    { title: 'Library reading room lights', category: 'Library', status: 'IN_PROGRESS', priority: 'MEDIUM', departmentId: departments.Library.id, assignedAt: new Date() },
+    { title: 'Hostel water supply repaired', category: 'Hostel', status: 'RESOLVED', priority: 'HIGH', departmentId: departments.Hostel.id, assignedAt: new Date(), resolvedAt: new Date(), adminRemark: 'Water supply restored and checked.' },
+    { title: 'Academic marks query', category: 'Other', status: 'REJECTED', priority: 'LOW', rejectionReason: 'Academic matters should be raised with the course faculty.' },
+  ];
+  for (const example of examples) {
+    let complaint = await prisma.complaint.findFirst({ where: { title: example.title } });
+    if (!complaint) complaint = await prisma.complaint.create({ data: { studentId: student.id, classId: classA.id, description: `Demonstration complaint for ${example.category}.`, location: 'Campus', ...example } });
+    const currentHistory = await prisma.complaintUpdate.count({ where: { complaintId: complaint.id } });
+    if (!currentHistory) {
+      await prisma.complaintUpdate.create({ data: { complaintId: complaint.id, userId: student.id, status: 'PENDING_VERIFICATION', message: 'Complaint submitted by student.' } });
+      if (['ASSIGNED', 'IN_PROGRESS', 'RESOLVED'].includes(complaint.status)) {
+        await prisma.complaintUpdate.create({ data: { complaintId: complaint.id, userId: coordinator.id, status: 'VERIFIED', message: 'Complaint verified by coordinator.' } });
+        const assignedDepartment = await prisma.department.findUnique({ where: { id: complaint.departmentId }, select: { name: true } });
+        await prisma.complaintUpdate.create({ data: { complaintId: complaint.id, userId: coordinator.id, status: 'ASSIGNED', message: `Complaint automatically assigned to ${assignedDepartment?.name || 'department'} department.` } });
+      } else if (complaint.status === 'REJECTED') {
+        await prisma.complaintUpdate.create({ data: { complaintId: complaint.id, userId: coordinator.id, status: 'REJECTED', message: complaint.rejectionReason || 'Complaint rejected.' } });
+      }
+      if (['IN_PROGRESS', 'RESOLVED'].includes(complaint.status)) await prisma.complaintUpdate.create({ data: { complaintId: complaint.id, userId: null, status: 'IN_PROGRESS', message: 'Work started by department.' } });
+      if (complaint.status === 'RESOLVED') await prisma.complaintUpdate.create({ data: { complaintId: complaint.id, userId: null, status: 'RESOLVED', message: complaint.adminRemark || 'Complaint resolved by department.' } });
+    }
+  }
+  console.log('Seed complete. Demo password is configured with SEED_DEMO_PASSWORD or defaults to password123.');
+  console.log(`Admin: ${admin.email}; Department accounts: ${staff.map(([email]) => email).join(', ')}`);
 }
 
-main()
-  .catch((e) => {
-    console.error('Seed error:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch(error => { console.error('Seed error:', error); process.exitCode = 1; }).finally(() => prisma.$disconnect());

@@ -21,11 +21,15 @@ export async function authenticate(req, res, next) {
         role: true,
         contactNumber: true,
         classId: true,
+        departmentId: true,
       },
     });
 
     if (!user) {
       return res.status(401).json({ message: 'User not found. Please log in again.' });
+    }
+    if (user.role === 'DEPARTMENT' && !user.departmentId) {
+      return res.status(403).json({ message: 'This department account is not linked to a department. Contact an administrator.' });
     }
 
     req.user = user;

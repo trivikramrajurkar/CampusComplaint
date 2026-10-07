@@ -32,4 +32,15 @@ export const adminService = {
   assign: (id, data) => api.put(`/admin/complaints/${id}/assign`, data),
   updateStatus: (id, data) => api.put(`/admin/complaints/${id}/status`, data),
   getDepartments: () => api.get('/admin/departments'),
+  getUsers: () => api.get('/admin/users'),
+  createCoordinator: (data) => api.post('/admin/users/coordinators', data),
+  createDepartmentUser: (data) => api.post('/admin/users/departments', data),
+  changeRole: (id, role) => api.put(`/admin/users/${id}/role`, { role }),
+};
+
+export const departmentService = {
+  getComplaints: () => api.get('/department/complaints'),
+  getComplaint: (id) => api.get(`/department/complaints/${id}`),
+  accept: (id, data = {}) => api.put(`/department/complaints/${id}/accept`, data),
+  update: (id, data) => api.put(`/department/complaints/${id}/status`, data),
 };

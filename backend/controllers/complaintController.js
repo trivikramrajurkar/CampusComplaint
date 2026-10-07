@@ -38,7 +38,8 @@ export async function createComplaint(req, res, next) {
       attachmentUrl = `/uploads/${req.file.filename}`;
     }
 
-    const complaint = await prisma.complaint.create({
+    const complaint = await prisma.$transaction(async (tx) => {
+      const created = await tx.complaint.create({
       data: {
         studentId: req.user.id,
         classId: student.classId,
@@ -54,6 +55,9 @@ export async function createComplaint(req, res, next) {
         class: { select: { id: true, className: true } },
         department: { select: { id: true, name: true } },
       },
+    });
+      await tx.complaintUpdate.create({ data: { complaintId: created.id, userId: req.user.id, status: 'PENDING_VERIFICATION', message: 'Complaint submitted by student.' } });
+      return created;
     });
 
     res.status(201).json({
@@ -93,6 +97,7 @@ export async function getComplaintById(req, res, next) {
         class: { select: { id: true, className: true } },
         department: { select: { id: true, name: true } },
         feedback: true,
+        updates: { orderBy: { createdAt: 'asc' }, include: { user: { select: { id: true, name: true, role: true } } } },
       },
     });
 
@@ -100,15 +105,35 @@ export async function getComplaintById(req, res, next) {
       return res.status(404).json({ message: 'Complaint not found.' });
     }
 
-    // Students can only see their own complaints
-    if (req.user.role === 'STUDENT' && complaint.studentId !== req.user.id) {
-      return res.status(403).json({ message: 'You can only view your own complaints.' });
+    if (req.user.role === 'STUDENT' && complaint.studentId !== req.user.id) return res.status(403).json({ message: 'You can only view your own complaints.' });
+    if (req.user.role === 'COORDINATOR') {
+      const assignedClass = await prisma.class.findFirst({ where: { id: complaint.classId, coordinatorId: req.user.id }, select: { id: true } });
+      if (!assignedClass) return res.status(403).json({ message: 'You can only view complaints from your assigned classes.' });
     }
+    if (req.user.role === 'DEPARTMENT' && complaint.departmentId !== req.user.departmentId) return res.status(403).json({ message: 'Access denied.' });
 
     res.json({ complaint });
   } catch (err) {
     next(err);
   }
+}
+
+export async function getComplaintUpdates(req, res, next) {
+  try {
+    const complaint = await prisma.complaint.findUnique({ where: { id: req.params.id }, select: { id: true, studentId: true, classId: true } });
+    if (!complaint) return res.status(404).json({ message: 'Complaint not found.' });
+    if (req.user.role === 'STUDENT' && complaint.studentId !== req.user.id) return res.status(403).json({ message: 'Access denied.' });
+    if (req.user.role === 'COORDINATOR') {
+      const assigned = await prisma.class.findFirst({ where: { id: complaint.classId, coordinatorId: req.user.id }, select: { id: true } });
+      if (!assigned) return res.status(403).json({ message: 'Access denied.' });
+    }
+    if (req.user.role === 'DEPARTMENT') {
+      const assigned = await prisma.complaint.findFirst({ where: { id: complaint.id, departmentId: req.user.departmentId }, select: { id: true } });
+      if (!assigned) return res.status(403).json({ message: 'Access denied.' });
+    }
+    const updates = await prisma.complaintUpdate.findMany({ where: { complaintId: complaint.id }, orderBy: { createdAt: 'asc' }, include: { user: { select: { id: true, name: true, role: true } } } });
+    res.json({ updates });
+  } catch (err) { next(err); }
 }
 
 // POST /api/complaints/:id/feedback — Student submits feedback
@@ -170,10 +195,9 @@ export async function getFeedback(req, res, next) {
       return res.status(404).json({ message: 'Complaint not found.' });
     }
 
-    // Students can only view feedback for their own complaints
-    if (req.user.role === 'STUDENT' && complaint.studentId !== req.user.id) {
-      return res.status(403).json({ message: 'Access denied.' });
-    }
+    if (req.user.role === 'STUDENT' && complaint.studentId !== req.user.id) return res.status(403).json({ message: 'Access denied.' });
+    if (req.user.role === 'COORDINATOR' && !(await prisma.class.findFirst({ where: { id: complaint.classId, coordinatorId: req.user.id }, select: { id: true } }))) return res.status(403).json({ message: 'Access denied.' });
+    if (req.user.role === 'DEPARTMENT' && complaint.departmentId !== req.user.departmentId) return res.status(403).json({ message: 'Access denied.' });
 
     const feedback = await prisma.feedback.findUnique({
       where: { complaintId: req.params.id },

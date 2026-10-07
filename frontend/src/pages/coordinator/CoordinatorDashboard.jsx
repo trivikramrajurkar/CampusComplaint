@@ -26,7 +26,9 @@ export default function CoordinatorDashboard() {
 
   const stats = {
     pending: complaints.filter((c) => c.status === 'PENDING_VERIFICATION').length,
-    verified: complaints.filter((c) => c.status === 'VERIFIED').length,
+    verified: complaints.filter((c) => c.status === 'VERIFIED' || c.status === 'ASSIGNED' ||
+  c.status === 'IN_PROGRESS' ||
+  c.status === 'RESOLVED').length,
     rejected: complaints.filter((c) => c.status === 'REJECTED').length,
   };
 

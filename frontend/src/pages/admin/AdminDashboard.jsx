@@ -13,18 +13,22 @@ import {
 
 export default function AdminDashboard() {
   const [complaints, setComplaints] = useState([]);
+  const [userCounts, setUserCounts] = useState({ coordinators: 0, admins: 0, departmentUsers: 0 });
+  const [departmentActivity, setDepartmentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     adminService
       .getComplaints()
-      .then((res) => setComplaints(res.data.complaints))
+      .then((res) => { setComplaints(res.data.complaints); setUserCounts(res.data.userCounts || userCounts); setDepartmentActivity(res.data.departmentActivity || []); })
       .catch((err) => setError(err?.response?.data?.message || 'Failed to load complaints.'))
       .finally(() => setLoading(false));
   }, []);
 
   const stats = {
+    total: complaints.length,
+    pending: complaints.filter((c) => c.status === 'PENDING_VERIFICATION').length,
     verified: complaints.filter((c) => c.status === 'VERIFIED').length,
     assigned: complaints.filter((c) => c.status === 'ASSIGNED').length,
     inProgress: complaints.filter((c) => c.status === 'IN_PROGRESS').length,
@@ -37,19 +41,28 @@ export default function AdminDashboard() {
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-bold text-slate-800">Admin Dashboard</h2>
-        <p className="text-sm text-slate-500">Manage verified complaints and assign departments</p>
+        <p className="text-sm text-slate-500">Monitor complaint progress and intervene when needed.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Total Complaints" value={stats.total} icon={Layers} color="blue" />
         <StatCard label="Verified" value={stats.verified} icon={CheckCircle} color="blue" />
         <StatCard label="Assigned" value={stats.assigned} icon={Layers} color="purple" />
         <StatCard label="In Progress" value={stats.inProgress} icon={Loader} color="indigo" />
         <StatCard label="Resolved" value={stats.resolved} icon={CheckCheck} color="emerald" />
       </div>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Coordinators" value={userCounts.coordinators} icon={Layers} color="blue" />
+        <StatCard label="Administrators" value={userCounts.admins} icon={CheckCircle} color="purple" />
+        <StatCard label="Department Users" value={userCounts.departmentUsers} icon={CheckCheck} color="indigo" />
+      </div>
+
+      <div className="card p-5"><h3 className="mb-4 text-base font-semibold text-slate-800">Active by Department</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{departmentActivity.map((department) => <div className="rounded-lg bg-slate-50 p-4" key={department.id}><p className="text-sm text-slate-500">{department.name}</p><p className="mt-1 text-xl font-semibold text-slate-800">{department.activeComplaints}</p><p className="text-xs text-slate-500">active complaints</p></div>)}</div></div>
+
       <div className="card">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <h3 className="text-base font-semibold text-slate-800">Awaiting Assignment</h3>
+          <h3 className="text-base font-semibold text-slate-800">Recent Operational Complaints</h3>
           <Link to="/admin/complaints" className="text-sm text-brand-600 hover:text-brand-700">
             View all
           </Link>

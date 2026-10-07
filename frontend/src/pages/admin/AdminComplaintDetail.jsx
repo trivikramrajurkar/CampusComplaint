@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Layers, Play, CheckCheck, Paperclip } from 'lucide-react';
 import { adminService } from '../../services';
+import api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import Spinner from '../../components/Spinner';
 import {
@@ -11,6 +12,8 @@ import {
   formatDateTime,
   getApiError,
 } from '../../utils/helpers';
+
+const attachmentHref = (url) => url?.startsWith('http') ? url : `${api.defaults.baseURL.replace(/\/api\/?$/, '')}${url}`;
 
 export default function AdminComplaintDetail() {
   const { id } = useParams();
@@ -150,7 +153,7 @@ export default function AdminComplaintDetail() {
                   <dt className="font-medium text-slate-500">Attachment</dt>
                   <dd className="mt-1">
                     <a
-                      href={complaint.attachmentUrl}
+                      href={attachmentHref(complaint.attachmentUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700"
@@ -170,6 +173,11 @@ export default function AdminComplaintDetail() {
               <p className="text-sm text-slate-700">{complaint.coordinatorRemark}</p>
             </div>
           )}
+
+          <div className="card p-5">
+            <h3 className="mb-4 text-sm font-semibold text-slate-700">Progress History</h3>
+            <div className="space-y-4">{complaint.updates?.map((update) => <div key={update.id} className="border-l-2 border-brand-200 pl-4"><p className="text-sm font-medium text-slate-800">{update.status.replaceAll('_', ' ')}</p><p className="mt-1 text-sm text-slate-600">{update.message}</p><p className="mt-1 text-xs text-slate-400">{update.user?.name || 'System'} · {formatDateTime(update.createdAt)}</p></div>)}</div>
+          </div>
 
           {complaint.adminRemark && (
             <div className="card p-5">

@@ -9,6 +9,7 @@ import {
   Menu,
   X,
   GraduationCap,
+  Users,
 } from 'lucide-react';
 
 const navByRole = {
@@ -24,12 +25,18 @@ const navByRole = {
   ADMIN: [
     { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/admin/complaints', label: 'Complaints', icon: FileText },
+    { to: '/admin/users', label: 'User Management', icon: Users },
+  ],
+  DEPARTMENT: [
+    { to: '/department/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/department/complaints', label: 'Complaints', icon: FileText },
   ],
 };
 
 const roleLabel = {
   STUDENT: 'Student',
   COORDINATOR: 'Coordinator',
+  DEPARTMENT: 'Department',
   ADMIN: 'Admin',
 };
 
