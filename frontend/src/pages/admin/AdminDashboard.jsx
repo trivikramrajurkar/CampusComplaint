@@ -29,7 +29,7 @@ export default function AdminDashboard() {
   const stats = {
     total: complaints.length,
     pending: complaints.filter((c) => c.status === 'PENDING_VERIFICATION').length,
-    verified: complaints.filter((c) => c.status === 'VERIFIED').length,
+    verified: complaints.filter((c) => c.status === 'VERIFIED' || c.status === 'REJECTED' || c.status === 'PENDING_VERIFICATION').length,
     assigned: complaints.filter((c) => c.status === 'ASSIGNED').length,
     inProgress: complaints.filter((c) => c.status === 'IN_PROGRESS').length,
     resolved: complaints.filter((c) => c.status === 'RESOLVED').length,
@@ -46,7 +46,7 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Complaints" value={stats.total} icon={Layers} color="blue" />
-        <StatCard label="Verified" value={stats.verified} icon={CheckCircle} color="blue" />
+        <StatCard label="Pending / Rejected" value={stats.verified} icon={CheckCircle} color="blue" />
         <StatCard label="Assigned" value={stats.assigned} icon={Layers} color="purple" />
         <StatCard label="In Progress" value={stats.inProgress} icon={Loader} color="indigo" />
         <StatCard label="Resolved" value={stats.resolved} icon={CheckCheck} color="emerald" />
